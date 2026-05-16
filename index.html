@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>电商成本利润计算器（含淘宝推广）</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: "Microsoft YaHei", sans-serif;
+        }
+        body {
+            background: #f5f7fa;
+            max-width: 600px;
+            margin: 20px auto;
+            padding: 20px;
+        }
+        .card {
+            background: white;
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h2 {
+            text-align: center;
+            color: #333;
+            margin-top: 0;
+        }
+        .item {
+            margin: 12px 0;
+        }
+        label {
+            display: inline-block;
+            width: 160px;
+            font-weight: bold;
+            color: #555;
+        }
+        input {
+            width: 200px;
+            padding: 8px 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+        }
+        input:focus {
+            outline: none;
+            border-color: #409eff;
+            box-shadow: 0 0 0 2px rgba(64,158,255,0.2);
+        }
+        button {
+            background: #409eff;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 15px;
+            width: 100%;
+            transition: 0.2s;
+        }
+        button:hover {
+            background: #337ecc;
+        }
+        .result {
+            margin-top: 25px;
+            padding: 15px;
+            background: #f0f7ff;
+            border-radius: 8px;
+            line-height: 1.7;
+        }
+        .result strong {
+            color: #c7000b;
+        }
+        .tip {
+            font-size: 12px;
+            color: #888;
+            margin-top: 5px;
+            text-align: center;
+        }
+        .section {
+            margin: 20px 0 10px;
+            font-weight: bold;
+            color: #409eff;
+            font-size: 15px;
+        }
+    </style>
+</head>
+<body>
+    <div class="card">
+        <h2>📊 SJ电商成本利润计算器</h2>
+
+        <div class="section">📦 基础成本设置</div>
+        <div class="item">
+            <label>商品售价（元）：</label>
+            <input type="number" id="price" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>货品成本（元）：</label>
+            <input type="number" id="goodsCost" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>快递费（元）：</label>
+            <input type="number" id="express" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>运费险（元）：</label>
+            <input type="number" id="insurance" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>包装费（元）：</label>
+            <input type="number" id="pack" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>平台扣点（%）：</label>
+            <input type="number" id="platformRate" step="0.01" min="0" value="0">
+        </div>
+
+        <div class="section">📦 退货与损耗</div>
+        <div class="item">
+            <label>退货损耗/单（元）：</label>
+            <input type="number" id="returnLoss" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>退货率（%）：</label>
+            <input type="number" id="returnRate" step="0.01" min="0" value="0">
+        </div>
+
+        <div class="section">📢 淘宝推广设置</div>
+        <div class="item">
+            <label>点击单价（元）：</label>
+            <input type="number" id="clickPrice" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>点击转化率（%）：</label>
+            <input type="number" id="convRate" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>总推广预算（元）：</label>
+            <input type="number" id="totalAdBudget" step="0.01" min="0" value="0">
+        </div>
+        <div class="item">
+            <label>👉 预计推广成交单量：</label>
+            <input type="number" id="calcOrderCount" readonly disabled style="background:#f5f7fa;">
+        </div>
+
+        <div class="section">📊 利润计算</div>
+        <button onclick="calculate()">计算利润 & 推广上限</button>
+
+        <div class="result" id="result"></div>
+
+        <div class="tip">提示：不需要的项目填 0 即可，自动实时计算</div>
+    </div>
+
+    <script>
+        // 自动计算退货损耗
+        function autoReturnLoss() {
+            let express = parseFloat(document.getElementById('express').value) || 0;
+            let insurance = parseFloat(document.getElementById('insurance').value) || 0;
+            let pack = parseFloat(document.getElementById('pack').value) || 0;
+            let returnLoss = express + insurance + pack;
+            document.getElementById('returnLoss').value = returnLoss.toFixed(2);
+            calculate();
+        }
+
+        // 自动计算【推广成交单量】
+        function autoCalcOrderCount() {
+            let clickPrice = parseFloat(document.getElementById('clickPrice').value) || 0;
+            let convRate = parseFloat(document.getElementById('convRate').value) || 0;
+            let totalAdBudget = parseFloat(document.getElementById('totalAdBudget').value) || 0;
+
+            let calcOrderCount = 0;
+            if (clickPrice > 0 && convRate > 0) {
+                calcOrderCount = (totalAdBudget / clickPrice) * (convRate / 100);
+            }
+            document.getElementById('calcOrderCount').value = Math.max(calcOrderCount.toFixed(0), 0);
+            calculate();
+        }
+
+        // 页面加载
+        window.onload = function(){
+            autoReturnLoss();
+            autoCalcOrderCount();
+            calculate();
+        };
+
+        // 监听输入
+        document.getElementById('express').addEventListener('input', autoReturnLoss);
+        document.getElementById('insurance').addEventListener('input', autoReturnLoss);
+        document.getElementById('pack').addEventListener('input', autoReturnLoss);
+
+        document.getElementById('clickPrice').addEventListener('input', autoCalcOrderCount);
+        document.getElementById('convRate').addEventListener('input', autoCalcOrderCount);
+        document.getElementById('totalAdBudget').addEventListener('input', autoCalcOrderCount);
+
+        // 主计算函数
+        function calculate() {
+            function getVal(id) {
+                const num = parseFloat(document.getElementById(id).value);
+                return isNaN(num) || num < 0 ? 0 : num;
+            }
+
+            let price = getVal('price');
+            let goodsCost = getVal('goodsCost');
+            let express = getVal('express');
+            let insurance = getVal('insurance');
+            let pack = getVal('pack');
+            let platformRate = getVal('platformRate');
+            let returnLoss = getVal('returnLoss');
+            let returnRate = getVal('returnRate');
+            
+            let clickPrice = getVal('clickPrice');
+            let convRate = getVal('convRate');
+            let totalAdBudget = getVal('totalAdBudget');
+
+            // 自动算出的成交单量
+            let orderCount = Math.max(getVal('calcOrderCount'), 1);
+
+            // 每单成交推广费
+            let adFee = 0;
+            if (orderCount > 0) {
+                adFee = totalAdBudget / orderCount;
+            }
+
+            let validRate = (100 - returnRate) / 100;
+            let returnRatio = returnRate / 100;
+            let platformFee = price * (platformRate / 100);
+
+            // 单笔毛利润
+            let grossProfit = price - goodsCost - express - insurance - pack - platformFee - adFee;
+            
+            // 真实净利润公式
+            let avgNetProfit = 
+                grossProfit * validRate        
+                - returnLoss * returnRatio    
+                - adFee * returnRatio;        
+
+            // 利润率
+            let profitRate = price > 0 ? ((avgNetProfit / price) * 100).toFixed(2) : "0.00";
+
+            // ====================== ✅ 核心修正：总净利 ≤0 时的退货率 = 盈亏线 ======================
+            let breakReturnRate = "0.00";
+            const G = grossProfit;
+            const R = returnLoss;
+            const ad = adFee;
+
+            const denominator = G + R + ad;
+            if (denominator !== 0) {
+                let breakRate = G / denominator;
+                breakRate = Math.max(breakRate, 0);
+                breakRate = Math.min(breakRate, 1);
+                breakReturnRate = (breakRate * 100).toFixed(2);
+            }
+            // =====================================================================================
+
+            // 总利润
+            let totalProfit = avgNetProfit * orderCount;
+
+            // 结果展示
+            let res = `
+                <strong>🧾 单笔成本明细</strong><br>
+                货品+物流+包装：${(goodsCost+express+pack+insurance).toFixed(2)} 元<br>
+                平台扣点：${platformFee.toFixed(2)} 元<br>
+                每单推广费：${adFee.toFixed(2)} 元<br>
+                单笔总成本：${(goodsCost+express+pack+insurance+platformFee+adFee).toFixed(2)} 元<br><br>
+
+                <strong>💸 毛利润（未扣退货）</strong><br>
+                每单毛利润：<strong style="font-size:17px;">${grossProfit.toFixed(2)}</strong> 元<br><br>
+
+                <strong>💰 真实净利润（按公式计算）</strong><br>
+                每单平均净利润：<strong style="font-size:17px;">${avgNetProfit.toFixed(2)}</strong> 元<br>
+                净利润率：${profitRate}%<br><br>
+
+                <strong>📦 推广与总利润</strong><br>
+                总推广预算：${totalAdBudget.toFixed(2)} 元<br>
+                预计成交单量：${orderCount.toFixed(0)} 单<br>
+                预计总净利润：${totalProfit.toFixed(2)} 元<br>
+                <br>
+
+                <strong>⚠️ 盈亏警戒线（参考）</strong><br>
+                盈亏临界点：退货率 ≥ <strong>${breakReturnRate}%</strong> 开始亏钱<br><br>
+            `;
+
+            document.getElementById('result').innerHTML = res;
+        }
+
+        // 所有输入框实时计算
+        document.querySelectorAll('input').forEach(input => {
+            input.addEventListener('input', calculate);
+        });
+    </script>
+</body>
+</html>
