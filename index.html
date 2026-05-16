@@ -222,6 +222,12 @@
                 adFee = totalAdBudget / orderCount;
             }
 
+            // 计算推广ROI（按你的公式）
+            let roi = 0;
+            if (totalAdBudget > 0) {
+                roi = (orderCount * price) / totalAdBudget;
+            }
+
             let validRate = (100 - returnRate) / 100;
             let returnRatio = returnRate / 100;
             let platformFee = price * (platformRate / 100);
@@ -238,20 +244,24 @@
             // 利润率
             let profitRate = price > 0 ? ((avgNetProfit / price) * 100).toFixed(2) : "0.00";
 
-            // ====================== ✅ 核心修正：总净利 ≤0 时的退货率 = 盈亏线 ======================
+            // ====================== ✅ 核心修正：盈亏临界点算法优化 ======================
             let breakReturnRate = "0.00";
             const G = grossProfit;
             const R = returnLoss;
             const ad = adFee;
 
-            const denominator = G + R + ad;
-            if (denominator !== 0) {
-                let breakRate = G / denominator;
-                breakRate = Math.max(breakRate, 0);
-                breakRate = Math.min(breakRate, 1);
-                breakReturnRate = (breakRate * 100).toFixed(2);
+            // 只有盈利时才计算盈亏退货率，否则直接显示不亏钱/已亏损
+            if (G > 0) {
+                const denominator = G + R + ad;
+                if (denominator > 0) {
+                    let breakRate = G / denominator;
+                    breakRate = Math.min(Math.max(breakRate, 0), 1);
+                    breakReturnRate = (breakRate * 100).toFixed(2);
+                }
+            } else {
+                breakReturnRate = "0.00"; // 毛利润为负，直接亏损
             }
-            // =====================================================================================
+            // ==========================================================================
 
             // 总利润
             let totalProfit = avgNetProfit * orderCount;
@@ -267,13 +277,14 @@
                 <strong>💸 毛利润（未扣退货）</strong><br>
                 每单毛利润：<strong style="font-size:17px;">${grossProfit.toFixed(2)}</strong> 元<br><br>
 
-                <strong>💰 真实净利润（按公式计算）</strong><br>
+                <strong>💰 真实净利润（含退货+推广）</strong><br>
                 每单平均净利润：<strong style="font-size:17px;">${avgNetProfit.toFixed(2)}</strong> 元<br>
                 净利润率：${profitRate}%<br><br>
 
                 <strong>📦 推广与总利润</strong><br>
                 总推广预算：${totalAdBudget.toFixed(2)} 元<br>
-                预计成交单量：${orderCount.toFixed(0)} 单<br>
+                预计推广成交单量：${orderCount.toFixed(0)} 单<br>
+                推广ROI：<strong style="font-size:17px;">${roi.toFixed(2)}</strong><br>
                 预计总净利润：${totalProfit.toFixed(2)} 元<br>
                 <br>
 
