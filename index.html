@@ -47,6 +47,12 @@
             border-color: #409eff;
             box-shadow: 0 0 0 2px rgba(64,158,255,0.2);
         }
+        /* 只读输入框样式优化 */
+        input:read-only {
+            background: #f5f7fa !important;
+            cursor: not-allowed;
+            color: #666;
+        }
         button {
             background: #409eff;
             color: white;
@@ -83,6 +89,8 @@
             font-weight: bold;
             color: #409eff;
             font-size: 15px;
+            border-left: 4px solid #409eff;
+            padding-left: 8px;
         }
     </style>
 </head>
@@ -93,67 +101,72 @@
         <div class="section">📦 基础成本设置</div>
         <div class="item">
             <label>商品售价（元）：</label>
-            <input type="number" id="price" step="0.01" min="0" value="0">
+            <input type="number" id="price" step="0.01" min="0" value="0" placeholder="请输入商品售价">
         </div>
         <div class="item">
             <label>货品成本（元）：</label>
-            <input type="number" id="goodsCost" step="0.01" min="0" value="0">
+            <input type="number" id="goodsCost" step="0.01" min="0" value="0" placeholder="请输入货品成本">
         </div>
         <div class="item">
             <label>快递费（元）：</label>
-            <input type="number" id="express" step="0.01" min="0" value="0">
+            <input type="number" id="express" step="0.01" min="0" value="0" placeholder="请输入快递费">
         </div>
         <div class="item">
             <label>运费险（元）：</label>
-            <input type="number" id="insurance" step="0.01" min="0" value="0">
+            <input type="number" id="insurance" step="0.01" min="0" value="0" placeholder="请输入运费险">
         </div>
         <div class="item">
             <label>包装费（元）：</label>
-            <input type="number" id="pack" step="0.01" min="0" value="0">
+            <input type="number" id="pack" step="0.01" min="0" value="0" placeholder="请输入包装费">
         </div>
         <div class="item">
             <label>平台扣点（%）：</label>
-            <input type="number" id="platformRate" step="0.01" min="0" value="0">
+            <input type="number" id="platformRate" step="0.01" min="0" value="0" placeholder="请输入平台扣点比例">
         </div>
 
         <div class="section">📦 退货与损耗</div>
         <div class="item">
             <label>退货损耗/单（元）：</label>
-            <input type="number" id="returnLoss" step="0.01" min="0" value="0">
+            <input type="number" id="returnLoss" step="0.01" min="0" readonly placeholder="自动计算">
         </div>
         <div class="item">
             <label>退货率（%）：</label>
-            <input type="number" id="returnRate" step="0.01" min="0" value="0">
+            <input type="number" id="returnRate" step="0.01" min="0" value="0" placeholder="请输入退货率">
         </div>
 
         <div class="section">📢 淘宝推广设置</div>
         <div class="item">
             <label>点击单价（元）：</label>
-            <input type="number" id="clickPrice" step="0.01" min="0" value="0">
+            <input type="number" id="clickPrice" step="0.01" min="0" value="0" placeholder="无需可填0">
         </div>
         <div class="item">
             <label>点击转化率（%）：</label>
-            <input type="number" id="convRate" step="0.01" min="0" value="0">
+            <input type="number" id="convRate" step="0.01" min="0" value="0" placeholder="无需可填0">
+        </div>
+        <!-- 新增：预计ROI输入框 -->
+        <div class="item">
+            <label>预计ROI：</label>
+            <input type="number" id="expectRoi" step="0.01" min="0" value="0" placeholder="填目标ROI自动算单量">
         </div>
         <div class="item">
             <label>总推广预算（元）：</label>
-            <input type="number" id="totalAdBudget" step="0.01" min="0" value="0">
+            <input type="number" id="totalAdBudget" step="0.01" min="0" value="0" placeholder="请输入总推广预算">
         </div>
         <div class="item">
             <label>👉 预计推广成交单量：</label>
-            <input type="number" id="calcOrderCount" readonly disabled style="background:#f5f7fa;">
+            <input type="number" id="calcOrderCount" readonly style="background:#f5f7fa;">
         </div>
 
         <div class="section">📊 利润计算</div>
-        <button onclick="calculate()">计算利润 & 推广上限</button>
+        <button onclick="calculate()">计算</button>
 
         <div class="result" id="result"></div>
 
-        <div class="tip">提示：不需要的项目填 0 即可，自动实时计算</div>
+        <div class="tip">提示：不需要的项目填 0 即可，输入自动实时计算</div>
     </div>
 
     <script>
-        // 自动计算退货损耗
+        // 自动计算退货损耗 = 快递+运费险+包装费
         function autoReturnLoss() {
             let express = parseFloat(document.getElementById('express').value) || 0;
             let insurance = parseFloat(document.getElementById('insurance').value) || 0;
@@ -163,43 +176,61 @@
             calculate();
         }
 
-        // 自动计算【推广成交单量】
+        // 自动计算【推广成交单量】（双模式：ROI模式 / 点击转化模式）
         function autoCalcOrderCount() {
+            // 获取核心参数
+            let price = parseFloat(document.getElementById('price').value) || 0;
             let clickPrice = parseFloat(document.getElementById('clickPrice').value) || 0;
             let convRate = parseFloat(document.getElementById('convRate').value) || 0;
             let totalAdBudget = parseFloat(document.getElementById('totalAdBudget').value) || 0;
+            let expectRoi = parseFloat(document.getElementById('expectRoi').value) || 0;
 
             let calcOrderCount = 0;
-            if (clickPrice > 0 && convRate > 0) {
+
+            // 🔥 模式1：用户填写了【预计ROI】→ 优先用ROI反向计算单量
+            if (expectRoi > 0 && totalAdBudget > 0 && price > 0) {
+                // 公式：成交单量 = (总预算 × 预计ROI) ÷ 商品售价
+                calcOrderCount = (totalAdBudget * expectRoi) / price;
+            }
+            // 🔥 模式2：未填预计ROI → 使用原有方式（点击单价+转化率）计算
+            else if (clickPrice > 0 && convRate > 0 && totalAdBudget > 0) {
                 calcOrderCount = (totalAdBudget / clickPrice) * (convRate / 100);
             }
-            document.getElementById('calcOrderCount').value = Math.max(calcOrderCount.toFixed(0), 0);
+
+            // 最终单量取整数，最低为0
+            document.getElementById('calcOrderCount').value = Math.floor(calcOrderCount) || 0;
             calculate();
         }
 
-        // 页面加载
+        // 页面加载初始化
         window.onload = function(){
             autoReturnLoss();
             autoCalcOrderCount();
             calculate();
         };
 
-        // 监听输入
+        // 监听输入事件
         document.getElementById('express').addEventListener('input', autoReturnLoss);
         document.getElementById('insurance').addEventListener('input', autoReturnLoss);
         document.getElementById('pack').addEventListener('input', autoReturnLoss);
 
+        // 推广相关输入监听（新增预计ROI）
         document.getElementById('clickPrice').addEventListener('input', autoCalcOrderCount);
         document.getElementById('convRate').addEventListener('input', autoCalcOrderCount);
         document.getElementById('totalAdBudget').addEventListener('input', autoCalcOrderCount);
+        document.getElementById('expectRoi').addEventListener('input', autoCalcOrderCount);
+        // 售价变化时，ROI计算单量也会更新
+        document.getElementById('price').addEventListener('input', autoCalcOrderCount);
 
         // 主计算函数
         function calculate() {
+            // 安全获取数值：空值/负数自动转为0
             function getVal(id) {
                 const num = parseFloat(document.getElementById(id).value);
                 return isNaN(num) || num < 0 ? 0 : num;
             }
 
+            // 基础参数
             let price = getVal('price');
             let goodsCost = getVal('goodsCost');
             let express = getVal('express');
@@ -209,64 +240,56 @@
             let returnLoss = getVal('returnLoss');
             let returnRate = getVal('returnRate');
             
+            // 推广参数
             let clickPrice = getVal('clickPrice');
             let convRate = getVal('convRate');
             let totalAdBudget = getVal('totalAdBudget');
+            let expectRoi = getVal('expectRoi');
+            let orderCount = getVal('calcOrderCount');
 
-            // 自动算出的成交单量
-            let orderCount = Math.max(getVal('calcOrderCount'), 1);
+            // 1. 每单推广费
+            let adFee = orderCount > 0 ? (totalAdBudget / orderCount) : 0;
 
-            // 每单成交推广费
-            let adFee = 0;
-            if (orderCount > 0) {
-                adFee = totalAdBudget / orderCount;
-            }
+            // 2. 实际推广ROI
+            let totalSales = orderCount * price;
+            let realRoi = totalAdBudget > 0 ? (totalSales / totalAdBudget) : 0;
 
-            // 计算推广ROI（按你的公式）
-            let roi = 0;
-            if (totalAdBudget > 0) {
-                roi = (orderCount * price) / totalAdBudget;
-            }
-
+            // 3. 退货率换算
             let validRate = (100 - returnRate) / 100;
             let returnRatio = returnRate / 100;
             let platformFee = price * (platformRate / 100);
 
-            // 单笔毛利润
+            // 4. 单笔毛利润
             let grossProfit = price - goodsCost - express - insurance - pack - platformFee - adFee;
             
-            // 真实净利润公式
+            // 5. 真实净利润
             let avgNetProfit = 
                 grossProfit * validRate        
-                - returnLoss * returnRatio    
+                - returnLoss * returnRatio     
                 - adFee * returnRatio;        
 
-            // 利润率
+            // 6. 净利润率
             let profitRate = price > 0 ? ((avgNetProfit / price) * 100).toFixed(2) : "0.00";
 
-            // ====================== ✅ 核心修正：盈亏临界点算法优化 ======================
+            // 7. 盈亏临界点
             let breakReturnRate = "0.00";
+            let breakTip = "";
             const G = grossProfit;
             const R = returnLoss;
             const ad = adFee;
 
-            // 只有盈利时才计算盈亏退货率，否则直接显示不亏钱/已亏损
-            if (G > 0) {
-                const denominator = G + R + ad;
-                if (denominator > 0) {
-                    let breakRate = G / denominator;
-                    breakRate = Math.min(Math.max(breakRate, 0), 1);
-                    breakReturnRate = (breakRate * 100).toFixed(2);
-                }
+            if (G <= 0) {
+                breakTip = "当前定价/成本已亏损，无需考虑退货率";
             } else {
-                breakReturnRate = "0.00"; // 毛利润为负，直接亏损
+                const denominator = G + R + ad;
+                breakReturnRate = denominator > 0 ? ((G / denominator) * 100).toFixed(2) : "0.00";
+                breakTip = `退货率 ≥ <strong>${breakReturnRate}%</strong> 开始亏钱`;
             }
-            // ==========================================================================
 
-            // 总利润
+            // 8. 总净利润
             let totalProfit = avgNetProfit * orderCount;
 
-            // 结果展示
+            // 结果渲染
             let res = `
                 <strong>🧾 单笔成本明细</strong><br>
                 货品+物流+包装：${(goodsCost+express+pack+insurance).toFixed(2)} 元<br>
@@ -281,15 +304,16 @@
                 每单平均净利润：<strong style="font-size:17px;">${avgNetProfit.toFixed(2)}</strong> 元<br>
                 净利润率：${profitRate}%<br><br>
 
-                <strong>📦 推广与总利润</strong><br>
+                <strong>📦 推广数据</strong><br>
                 总推广预算：${totalAdBudget.toFixed(2)} 元<br>
-                预计推广成交单量：${orderCount.toFixed(0)} 单<br>
-                推广ROI：<strong style="font-size:17px;">${roi.toFixed(2)}</strong><br>
+                预计ROI：${expectRoi.toFixed(2)}<br>
+                实际ROI：<strong style="font-size:17px;">${realRoi.toFixed(2)}</strong><br>
+                预计推广成交单量：${orderCount} 单<br>
                 预计总净利润：${totalProfit.toFixed(2)} 元<br>
                 <br>
 
                 <strong>⚠️ 盈亏警戒线（参考）</strong><br>
-                盈亏临界点：退货率 ≥ <strong>${breakReturnRate}%</strong> 开始亏钱<br><br>
+                ${breakTip}<br>
             `;
 
             document.getElementById('result').innerHTML = res;
