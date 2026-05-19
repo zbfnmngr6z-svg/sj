@@ -289,7 +289,46 @@
             // 8. 总净利润
             let totalProfit = avgNetProfit * orderCount;
 
-            // 结果渲染
+            // 9. 保本ROI计算（核心新增逻辑）
+            let breakEvenRoiTip = "";
+            let breakEvenRoi = 0; 
+            let beDenominator = 0; // 保本ROI的分母，用于后续PPC计算
+            if (price <= 0) {
+                breakEvenRoiTip = "售价为0，无法计算保本ROI";
+            } else {
+                // 定义核心变量
+                const C = goodsCost + express + insurance + pack; // 货品+物流+包装总成本
+                const PF = price * (platformRate / 100); // 平台扣点
+                const RL = returnLoss; // 退货损耗
+                const RR = returnRate / 100; // 退货率
+                const VR = 1 - RR; // 有效单率
+
+                // 保本ROI公式分母：(售价-基础成本-平台扣点)*有效单率 - 退货损耗*退货率
+                beDenominator = (price - C - PF) * VR - RL * RR;
+                
+                if (beDenominator <= 0) {
+                    breakEvenRoiTip = "📛 无法保本（即使推广费为0也亏损）";
+                } else {
+                    breakEvenRoi = (price / beDenominator); // 存储保本ROI数值
+                    breakEvenRoiTip = `保本ROI：<strong style="font-size:17px;">${breakEvenRoi.toFixed(2)}</strong>`;
+                }
+            }
+
+            // 10. 保本点击单价（PPC）计算 ✨ 核心新增
+            let breakEvenPpcTip = "";
+            if (price <= 0) {
+                breakEvenPpcTip = "售价为0，无法计算保本PPC";
+            } else if (convRate <= 0) {
+                breakEvenPpcTip = "转化率为0，无法计算保本PPC";
+            } else if (beDenominator <= 0) { 
+                breakEvenPpcTip = "无法计算保本PPC（无法保本）";
+            } else {
+                // 公式推导：ROI = (转化率×售价) / PPC → 保本PPC = (转化率(%)/100 × 售价) / 保本ROI
+                const breakEvenPpc = ( (convRate / 100) * price ) / breakEvenRoi;
+                breakEvenPpcTip = `保本点击单价（PPC）：<strong style="font-size:17px;">${breakEvenPpc.toFixed(2)}</strong> 元`;
+            }
+
+            // 结果渲染（新增保本PPC展示）
             let res = `
                 <strong>🧾 单笔成本明细</strong><br>
                 货品+物流+包装：${(goodsCost+express+pack+insurance).toFixed(2)} 元<br>
@@ -308,6 +347,8 @@
                 总推广预算：${totalAdBudget.toFixed(2)} 元<br>
                 预计ROI：${expectRoi.toFixed(2)}<br>
                 实际ROI：<strong style="font-size:17px;">${realRoi.toFixed(2)}</strong><br>
+                ${breakEvenRoiTip}<br>
+                ${breakEvenPpcTip}<br> <!-- 新增保本PPC展示 -->
                 预计推广成交单量：${orderCount} 单<br>
                 预计总净利润：${totalProfit.toFixed(2)} 元<br>
                 <br>
